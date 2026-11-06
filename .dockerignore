@@ -1,0 +1,8 @@
+.git
+.aep-data
+.claude
+node_modules
+test
+*.md
+.env
+compose.yaml

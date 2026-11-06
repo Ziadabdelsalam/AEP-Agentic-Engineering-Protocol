@@ -1,0 +1,25 @@
+{
+  "description": "AEP: group delivery and guardrails",
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.js\" SessionStart", "timeout": 5 }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.js\" UserPromptSubmit", "timeout": 5 }] }
+    ],
+    "PreToolUse": [
+      { "matcher": "Edit|Write|NotebookEdit", "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.js\" PreEdit", "timeout": 5 }] },
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.js\" PreBash", "timeout": 15 }] },
+      { "matcher": "mcp__plugin_aep_aep__.*", "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.js\" PreAep", "timeout": 5 }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Read|Edit|Write|NotebookEdit|Bash|Glob|Grep", "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.js\" PostTool", "timeout": 8 }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.js\" Stop", "timeout": 5 }] }
+    ],
+    "SessionEnd": [
+      { "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.js\" SessionEnd", "timeout": 5 }] }
+    ]
+  }
+}

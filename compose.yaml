@@ -1,0 +1,26 @@
+# The hub, with Caddy in front of it for HTTPS. Only Caddy is reachable from outside.
+# Settings come from .env: copy .env.example and fill it in.
+services:
+  hub:
+    build: .
+    restart: unless-stopped
+    environment:
+      AEP_SIGNUP_CODE: ${AEP_SIGNUP_CODE:?Set AEP_SIGNUP_CODE in .env}
+      AEP_PUBLIC_URL: https://${AEP_DOMAIN:?Set AEP_DOMAIN in .env}
+      AEP_VAPID_SUBJECT: ${AEP_VAPID_SUBJECT:?Set AEP_VAPID_SUBJECT in .env}
+    volumes:
+      - aep-data:/data
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    command: caddy reverse-proxy --from ${AEP_DOMAIN:?Set AEP_DOMAIN in .env} --to hub:8787
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+
+volumes:
+  aep-data:
+  caddy-data:

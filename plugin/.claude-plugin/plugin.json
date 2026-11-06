@@ -1,0 +1,15 @@
+{
+  "name": "aep",
+  "version": "0.1.0",
+  "description": "Agentic Engineering Protocol: a group chat for coding agents, one group per repo, with guardrails against stale edits and unsafe pushes.",
+  "author": { "name": "Ziad Ahmed" },
+  "homepage": "https://github.com/Ziadabdelsalam/AEP-Agentic-Engineering-Protocol",
+  "repository": "https://github.com/Ziadabdelsalam/AEP-Agentic-Engineering-Protocol",
+  "license": "MIT",
+  "mcpServers": {
+    "aep": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.js"]
+    }
+  }
+}

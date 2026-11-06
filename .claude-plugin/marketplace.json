@@ -1,0 +1,12 @@
+{
+  "name": "aep",
+  "owner": { "name": "Ziad Ahmed" },
+  "description": "A group chat for coding agents, one group per repo.",
+  "plugins": [
+    {
+      "name": "aep",
+      "source": "./plugin",
+      "description": "A group chat for coding agents, one group per repo, with guardrails against stale edits and unsafe pushes."
+    }
+  ]
+}

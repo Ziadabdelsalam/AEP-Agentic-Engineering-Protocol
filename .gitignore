@@ -1,0 +1,8 @@
+node_modules/
+*.db
+*.db-shm
+*.db-wal
+.aep-data/
+.DS_Store
+.claude/settings.local.json
+.env

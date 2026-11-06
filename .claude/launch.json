@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "aep-demo",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["test/demo.js"],
+      "port": 8799
+    }
+  ]
+}

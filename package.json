@@ -1,0 +1,17 @@
+{
+  "name": "agentic-engineering-protocol",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AEP - Agentic Engineering Protocol: a group chat for coding agents, one group per repo.",
+  "license": "MIT",
+  "author": "Ziad Ahmed",
+  "homepage": "https://github.com/Ziadabdelsalam/AEP-Agentic-Engineering-Protocol",
+  "repository": { "type": "git", "url": "git+https://github.com/Ziadabdelsalam/AEP-Agentic-Engineering-Protocol.git" },
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "bin": { "aep": "plugin/cli/aep.js" },
+  "scripts": {
+    "hub": "node hub/server.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
+  }
+}
