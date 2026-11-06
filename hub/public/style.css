@@ -424,6 +424,14 @@ code {
 .card h1 { font-size: 1.25rem; margin: 10px 0 6px; }
 .card p { margin: 8px 0; }
 .card pre { background: var(--surface-2); padding: 9px 11px; border-radius: 8px; margin: 8px 0; overflow-x: auto; }
+.card ol { margin: 8px 0; padding-left: 22px; }
+.card .choices button { white-space: normal; }
+.paste-pair { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.paste-pair input { flex: 1 1 200px; min-width: 0; }
+.paste-pair button { flex: none; }
+.form-error { flex-basis: 100%; margin: 0; color: var(--danger); }
+.form-error:empty { display: none; }
+.pair-another { margin-top: 8px; display: block; }
 .pair-code { font: 700 2rem ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.06em; text-align: center; padding: 14px; background: var(--accent-soft); color: var(--accent); border-radius: 10px; margin: 12px 0; }
 
 #toast {

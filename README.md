@@ -48,37 +48,97 @@ This is an early release. It passes its automated tests and real-agent tests, bu
 
 ## Install
 
-You'll need:
+These steps take you from nothing to you and a teammate both connected. To look around first, see [Try it on one machine](#try-it-on-one-machine).
 
-- Node.js 22.13 or newer, and Claude Code, on each machine that runs agents
-- A repo that you and your teammate both push to, with a remote called `origin`
-- For real use, a server that both of you can reach over HTTPS, with a domain pointing at it
+In the commands, replace `aep.yourdomain.com`, `you@yourdomain.com` and `/path/to/your/project` with your own values.
 
-### 1. Get the code
+### Part 1: Set up the server
+
+The hub needs a permanent disk, long-lived connections and exactly one running copy, so serverless hosts such as Vercel, Lambda or Cloud Run won't work. A basic VPS is plenty. Managed hosts like Fly.io usually mount volumes as root, while this image runs as a non-root user, so expect to change the image for those.
+
+**1. Create a small Ubuntu VPS** from any provider, and note its IP address.
+
+**2. Allow ports 22, 80 and 443 in its firewall.** Port 22 is for SSH, and the other two are for the hub.
+
+**3. Point your domain at it.** Add a DNS `A` record from `aep.yourdomain.com` to the server's IP, and wait for it to take effect.
+
+**4. Log in to the server:**
+
+```bash
+ssh root@YOUR_SERVER_IP
+```
+
+**5. Install git and Docker:**
+
+```bash
+apt-get update && apt-get install -y git
+```
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+**6. Get the code:**
+
+```bash
+git clone https://github.com/Ziadabdelsalam/AEP-Agentic-Engineering-Protocol.git /opt/aep
+```
+
+**7. Create the settings file with a random signup code:**
+
+```bash
+cd /opt/aep && cp .env.example .env && sed -i "s/^AEP_SIGNUP_CODE=.*/AEP_SIGNUP_CODE=$(openssl rand -hex 24)/" .env
+```
+
+**8. Set your domain and email.** Use a real email address, because push services can reject placeholders:
+
+```bash
+sed -i "s/^AEP_DOMAIN=.*/AEP_DOMAIN=aep.yourdomain.com/" /opt/aep/.env
+```
+
+```bash
+sed -i "s/^AEP_VAPID_SUBJECT=.*/AEP_VAPID_SUBJECT=mailto:you@yourdomain.com/" /opt/aep/.env
+```
+
+**9. Start the hub.** Caddy gets the HTTPS certificate by itself:
+
+```bash
+cd /opt/aep && docker compose up -d --build
+```
+
+**10. Check it from your own machine.** It should print `ok`:
+
+```bash
+curl https://aep.yourdomain.com/healthz
+```
+
+If it doesn't, the usual cause is DNS or a closed port. Run this on the server to see the certificate logs:
+
+```bash
+cd /opt/aep && docker compose logs caddy
+```
+
+**11. Copy your signup code from the server:**
+
+```bash
+grep AEP_SIGNUP_CODE /opt/aep/.env
+```
+
+### Part 2: Set up your machine
+
+You need Node.js 22.13 or newer, and Claude Code.
+
+**12. Get the `aep` command.** There are no dependencies to install:
 
 ```bash
 git clone https://github.com/Ziadabdelsalam/AEP-Agentic-Engineering-Protocol.git
 ```
 
 ```bash
-cd AEP-Agentic-Engineering-Protocol
+cd AEP-Agentic-Engineering-Protocol && npm link
 ```
 
-There are no dependencies to install.
-
-### 2. Run the hub
-
-To try it on one machine, run this and note the signup code it prints. Your hub address is then `http://localhost:8787`.
-
-```bash
-npm run hub
-```
-
-To use it with a teammate, deploy it with the steps in [Deploy the hub](#deploy-the-hub).
-
-### 3. Install the plugin and the `aep` command
-
-Do this on each machine that runs agents:
+**13. Install the plugin.** It does nothing in a repo until you opt that repo in:
 
 ```bash
 claude plugin marketplace add Ziadabdelsalam/AEP-Agentic-Engineering-Protocol
@@ -88,53 +148,67 @@ claude plugin marketplace add Ziadabdelsalam/AEP-Agentic-Engineering-Protocol
 claude plugin install aep@aep
 ```
 
-Then, from the folder you cloned, put the `aep` command on your path:
-
-```bash
-npm link
-```
-
-The plugin does nothing in a repo until you opt that repo in.
-
-### 4. Sign up and join a repo
-
-Use your hub's address, your name, and the signup code:
+**14. Create your account,** using the code from step 11:
 
 ```bash
 aep signup --hub https://aep.yourdomain.com --name alice --code YOUR_SIGNUP_CODE
 ```
 
-Then, inside the repo you want to share:
+**15. Join your project.** It needs a git remote called `origin`:
 
 ```bash
-aep join
+cd /path/to/your/project && aep join
 ```
 
-Agents you start in that repo are now in its group.
-
-### 5. Pair your phone or browser
+**16. Pair your browser or phone:**
 
 ```bash
 aep pair-browser
 ```
 
-Open the link it prints. Your browser shows a code, and your terminal shows one too. If they match, confirm in the terminal. Your browser now holds a private key that can't be copied out of it, and it uses that key to sign in and to sign your commands.
+Open the link it prints. If the code in your browser matches the one in your terminal, type `y`. Your browser now holds a private key that can't be copied out of it, and it uses that key to sign in and to sign your commands.
 
-To get alerts on an iPhone, add the app to your home screen first, using Share, then Add to Home Screen. Open it from there and tap **Turn on phone alerts**.
+**On an iPhone, the order matters if you want alerts,** because home screen apps keep their storage separate from Safari. Open your hub's address in Safari, tap Share, then Add to Home Screen, and open AEP from your home screen. Then paste the link into the box there. If you tap the link in Safari by mistake, the app stops and walks you through this before using the link, since each link only works once.
 
-### 6. Invite your teammate
+**17. Turn on alerts.** In the app, open **Needs you** and tap **Turn on phone alerts**.
 
-Inside the repo:
+### Part 3: Add your teammate
+
+**18. Create their invite,** inside your project:
 
 ```bash
 aep invite
 ```
 
-It prints what to send them. They do steps 1 and 3, then run the commands from the invite in their clone. An invite works once.
+Send them the code it prints. It works once and expires after 7 days.
 
-### 7. Optional: let your messages start workers
+**19. They repeat steps 12 and 13 on their machine.**
 
-If you message one of your agents from the app while it's idle, it waits for the agent's next run. To have it start a background agent instead:
+**20. They create their account,** using the invite code:
+
+```bash
+aep signup --hub https://aep.yourdomain.com --name bob --code INVITE_CODE
+```
+
+**21. They join from their clone of the project:**
+
+```bash
+cd /path/to/their/project && aep join
+```
+
+**22. They pair their browser or phone,** as in steps 16 and 17.
+
+### Part 4: Confirm it works
+
+**23. Start a new Claude Code session in the project, each of you.** Sessions already open won't have the plugin.
+
+**24. Open `https://aep.yourdomain.com`.** Both agents should appear under **Agents**.
+
+**25. Block force pushes on the shared branch** in your git host's branch settings. AEP's checks keep cooperative agents out of accidents, but only the host can truly enforce this.
+
+### Optional: let your messages start workers
+
+If you message one of your agents from the app while it's idle, it waits for the agent's next run. To have it start a background agent instead, run these inside the project:
 
 ```bash
 aep workers enable
@@ -154,45 +228,21 @@ aep workers enable --model haiku --budget 1 --minutes 10 --turns 20 --allow "Bas
 
 You merge its branch when you're happy with it, then clean up with `git worktree remove` and `git branch -d`.
 
-## Deploy the hub
+### Try it on one machine
 
-The hub needs a permanent disk, long-lived connections and exactly one running copy, so serverless hosts such as Vercel, Lambda or Cloud Run won't work. Use a small always-on Linux server: a basic VPS is plenty. Managed hosts like Fly.io usually mount volumes as root, while this image runs as a non-root user, so expect to change the image for those.
-
-First, point a domain's DNS `A` record at your server, such as `aep.yourdomain.com`, and open only ports 80 and 443. Then, on the server, install Docker:
+You don't need a server for this. Clone the repo and start the hub, which prints a signup code:
 
 ```bash
-curl -fsSL https://get.docker.com | sh
+git clone https://github.com/Ziadabdelsalam/AEP-Agentic-Engineering-Protocol.git
 ```
-
-Get the code:
 
 ```bash
-git clone https://github.com/Ziadabdelsalam/AEP-Agentic-Engineering-Protocol.git /opt/aep
+cd AEP-Agentic-Engineering-Protocol && npm run hub
 ```
 
-Create your settings file with a random signup code:
+Then follow Part 2 from step 12, using `http://localhost:8787` as your hub address.
 
-```bash
-cd /opt/aep && cp .env.example .env && sed -i "s/^AEP_SIGNUP_CODE=.*/AEP_SIGNUP_CODE=$(openssl rand -hex 24)/" .env
-```
-
-Open `/opt/aep/.env` and set `AEP_DOMAIN` and `AEP_VAPID_SUBJECT`. Then start it. Caddy gets the HTTPS certificate by itself:
-
-```bash
-cd /opt/aep && docker compose up -d --build
-```
-
-Check it from your own machine. It should print `ok`:
-
-```bash
-curl https://aep.yourdomain.com/healthz
-```
-
-Your signup code is in the settings file:
-
-```bash
-grep AEP_SIGNUP_CODE /opt/aep/.env
-```
+## Running the hub
 
 **To update it:**
 
@@ -213,7 +263,7 @@ The hub reads these settings:
 | `AEP_DOMAIN` | Your public address. Only `compose.yaml` uses this | Required with `compose.yaml` |
 | `AEP_SIGNUP_CODE` | Lets the first person sign up. Everyone else can join with an invite | Generated at startup without `compose.yaml` |
 | `AEP_PUBLIC_URL` | Your public address. Turns on secure cookies when it starts with `https`. `compose.yaml` sets it | None |
-| `AEP_VAPID_SUBJECT` | Contact address sent with phone alerts. Use a real one, because push services can reject placeholders | A placeholder without `compose.yaml` |
+| `AEP_VAPID_SUBJECT` | Contact address sent with phone alerts | A placeholder without `compose.yaml` |
 | `AEP_DATA_DIR` | Where the database lives | `/data` in Docker, otherwise `.aep-data` |
 | `AEP_RETENTION_DAYS` | How long messages are kept | 30 |
 | `PORT`, `AEP_HOST` | Where it listens | `8787`, and `127.0.0.1` outside Docker |
@@ -232,15 +282,13 @@ You don't need to do anything differently. Agents get the rules at session start
 
 The plugin allows its own group tools without a permission prompt, because they only read the inbox and post short text. Every other tool works as usual.
 
-Also turn on **block force pushes** for shared branches on your git host. AEP's checks keep cooperative agents out of accidents, but only the host can truly enforce this.
-
 ## What to know before relying on it
 
 - **Delivery isn't instant.** A running agent hears about a message between tool calls, and may finish its current step first. An idle agent hears nothing until its next prompt, so questions to it go to its owner.
 - **A hacked hub is still a risk to a paired browser.** The hub serves the web app, so a hacked hub could serve altered code to your browser while you're signed in. That's why workers are off by default, can't push, and have spending limits. See section 14 of the spec.
 - **Group text is untrusted.** Agents are told to treat it as information, and they did in testing, but that isn't a guarantee.
 - **The checks don't see everything.** The stale-edit check only sees the edit tools, not a file changed through a shell command, and an agent could push from a script the check doesn't recognize.
-- **Not tested yet:** two real machines over the internet, a real GitHub remote, real phones, interactive sessions, and heavy use over days. Section 15 of the spec has the full list.
+- **Not tested yet:** two real machines over the internet, a real GitHub remote, real phones, interactive sessions, and heavy use over days. The iPhone steps were only simulated in a desktop browser. Section 15 of the spec has the full list.
 
 ## Developing
 
