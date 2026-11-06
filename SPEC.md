@@ -130,6 +130,8 @@ The first version doesn't depend on Claude Code's channels preview, because cust
 3. The CLI checks that proof, then shows a short code that you compare with the browser's.
 4. Only after you confirm does the helper trust the key, and only then can the browser sign in.
 
+The app also has a box for pasting the link, because a home screen app has no address bar. iPhones keep home screen apps separate from Safari, and a link only works once, so opening a link in Safari on an iPhone stops and explains this before using it. A browser the hub already knows, such as one pairing with a second machine, keeps the code on screen until you say you've confirmed, because it could otherwise sign in and move on before you compared it.
+
 **Groups:**
 
 - A group maps to one repo. Its ID comes from a hash of the normalized git remote URL, so SSH and HTTPS clones find the same group. The hub stores the repo's name and, for GitHub, GitLab and Bitbucket, its web address for commit links.
@@ -432,6 +434,7 @@ POST /v1/push/subscribe
 - **Thread view:** a question and everything that followed.
 - **Decision card:** an escalation shown as positions and options, with one tap to choose.
 - **Direct:** message your own agents. Other people's agents can't be selected.
+- **Pairing:** open or paste a pairing link, including from a signed-in browser pairing with another machine.
 - **Commit links:** open the commit on the git host, since the app holds no code.
 
 ### What pings your phone
@@ -472,13 +475,13 @@ Phone alerts use web push from an installable web app. On iPhone, the app has to
 
 ## 15. What has been tested
 
-All of this ran on 2026-11-06 with Claude Code 2.1.308, on one machine, in throwaway repos with a local bare git remote. The final run of every layer below passed on the code in this repo: 123 automated tests, 39 checks across the real-agent scenarios, and 44 checks of the deployment stack.
+All of this ran on 2026-11-06 with Claude Code 2.1.308, on one machine, in throwaway repos with a local bare git remote. The final run of every layer below passed on the code in this repo: 135 automated tests, 39 checks across the real-agent scenarios, and 44 checks of the deployment stack. Since those last two ran, only the web app's pairing screens have changed, and those were retested in a browser.
 
 | Layer | What it runs | How to run it |
 | --- | --- | --- |
 | Automated tests | The message rules, the conversation state machine and the hub API, then the real hub, helpers, git, hooks and MCP servers together. A stand-in replaces the model | `npm test` |
 | Real agents | Claude Haiku running the real plugin against a real hub, with real helpers, two clones and a shared remote | `node test/e2e.js <dir>` |
-| Web app | Pairing, signed sign-in, the live feed, choosing in a dispute, replying and sending a signed command, at desktop and phone width, in light and dark | `node test/demo.js` |
+| Web app | Pairing with the real CLI checking a real browser's proof, pasting a link, pairing with a second machine, signed sign-in, the live feed, choosing in a dispute, replying and sending a signed command, at desktop and phone width, in light and dark. The iPhone pairing steps were simulated in a desktop browser | `node test/demo.js` |
 | Deployment | `compose.yaml` started from an `rsync` copy, behind Caddy with a local certificate, with the real CLI, helpers, hooks and MCP servers connecting over HTTPS. Messages reached the other machine's inbox in 9 ms, a quiet connection stayed up, the secure cookie and same-site check worked through the proxy, and everything survived a full stop and start and a killed hub process. A post made while the hub was down arrived once it returned | Steps in the README |
 | Packaging | The Docker image builds and serves as a non-root user. Claude Code's validator accepts the plugin, and the README's install steps work against a temporary Claude config, with the installed copy's hooks, tools and helper all loading | See the README |
 
@@ -507,6 +510,8 @@ Testing and review found these, and each is fixed:
 - **Lost summaries.** When the `Stop` check brought an agent back, its last message could leave out its main task.
 - **Inherited identity.** A helper started by a session's hook carried that session's variables and would have passed them to workers.
 - **Colliding handles.** Four-character session handles would have collided within a few hundred sessions.
+- **A dead end on iPhone.** A home screen app has no address bar, so it had no way to receive a pairing link, and tapping the link in Safari used it up on a browser that can't get alerts.
+- **A code that vanished.** A browser the hub already knew signed in and moved on before anyone could compare the pairing code.
 
 ### A finding about how agents behave
 
@@ -517,7 +522,7 @@ Most protections never had to fire. Told the rules at session start, the agents 
 - **A real server.** Two machines over the internet, with a public certificate. The deployment test ran on one machine with a local certificate, so getting a real certificate and real DNS hasn't been exercised
 - **The web app in a real browser over HTTPS.** Browser testing used `localhost` over plain HTTP, and the HTTPS test used a script standing in for the browser
 - **A real GitHub remote**, including whether a host accepts these fetches at this rate
-- **A real phone.** The service worker registers and the hub's push signature verifies, but no notification has reached a device
+- **A real phone.** The service worker registers and the hub's push signature verifies, but no notification has reached a device, and the iPhone pairing steps have only been simulated
 - **Interactive and desktop sessions.** All real-agent runs were headless, using `acceptEdits`
 - **`bypassPermissions` sessions**
 - **Worker budget and turn limits being hit**, and `claude --bg --resume`

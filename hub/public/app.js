@@ -1,10 +1,13 @@
 // The AEP web app. Plain JavaScript with no build step. All text goes in through textContent,
 // because everything in the feed was written by someone else.
 
+import { parsePairingLink } from './pairing.js';
+
 const app = document.getElementById('app');
 const toastEl = document.getElementById('toast');
 
 const state = {
+  paused: false,
   me: null,
   kid: null,
   groups: [],
@@ -50,6 +53,10 @@ function toast(text) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toastEl.dataset.on = 'false'; }, 3600);
 }
+
+// iPads report themselves as Macs, so touch is what gives them away.
+const isIos = () => /iphone|ipad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isInstalled = () => Boolean(navigator.standalone) || matchMedia('(display-mode: standalone)').matches;
 
 // Keys. The private key can't be exported from this browser, and it signs sign-ins and commands.
 
@@ -428,7 +435,7 @@ function renderAgents() {
 
 function renderNeeds() {
   const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window;
-  const iosNeedsInstall = /iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone;
+  const iosNeedsInstall = isIos() && !isInstalled();
   const permission = 'Notification' in window ? Notification.permission : 'unsupported';
   return h('section', { class: 'panel panel-needs' },
     h('h2', {}, 'Needs you'),
@@ -444,7 +451,8 @@ function renderNeeds() {
         ? h('button', { onclick: enableAlerts }, 'Turn on phone alerts')
         : permission === 'granted'
           ? h('p', { class: 'small muted' }, 'Phone alerts are on for this device.')
-          : h('p', { class: 'small muted' }, "This browser can't receive push alerts."));
+          : h('p', { class: 'small muted' }, "This browser can't receive push alerts."),
+    h('button', { class: 'pair-another', onclick: showPairAnother }, 'Pair with another machine'));
 }
 
 async function openAlert(alert) {
@@ -587,18 +595,91 @@ function screen(...children) {
   app.replaceChildren(h('main', { class: 'center' }, h('div', { class: 'card' }, h('img', { src: '/icon.svg', alt: '' }), children)));
 }
 
+function pairLinkForm() {
+  const input = h('input', {
+    type: 'text',
+    placeholder: 'Paste the pairing link',
+    ariaLabel: 'Pairing link',
+    autocomplete: 'off',
+    autocapitalize: 'off',
+  });
+  const problem = h('p', { class: 'small form-error', role: 'alert' });
+  const submit = (event) => {
+    event.preventDefault();
+    const { id, secret, error } = parsePairingLink(input.value, location.origin);
+    if (error) {
+      problem.textContent = error;
+      return;
+    }
+    location.hash = `#pair/${id}/${secret}`;
+  };
+  return h('form', { class: 'paste-pair', onsubmit: submit }, input, h('button', { class: 'primary', type: 'submit' }, 'Pair'), problem);
+}
+
 function renderUnpaired() {
   screen(
     h('h1', {}, 'Pair this browser'),
     h('p', {}, "This browser isn't connected to your account yet. On a machine that's set up, run:"),
     h('pre', {}, h('code', {}, 'aep pair-browser')),
-    h('p', { class: 'muted small' }, 'Then open the link it prints, on this browser or phone. New to this hub? Ask a teammate for an invite, or see the README.'),
+    h('p', {}, 'Then open the link it prints here, or paste it below.'),
+    pairLinkForm(),
+    isIos() && !isInstalled()
+      ? h('p', { class: 'small muted' }, 'For phone alerts on iPhone, first tap Share, then Add to Home Screen, and open AEP from there.')
+      : null,
+    h('p', { class: 'muted small' }, 'New to this hub? Ask a teammate for an invite, or see the README.'),
+  );
+}
+
+// A signed-in browser pairing with a second machine. Each machine's helper has to trust it separately.
+function showPairAnother() {
+  state.paused = true;
+  state.stream?.close();
+  screen(
+    h('h1', {}, 'Pair with another machine'),
+    h('p', {}, 'On that machine, run:'),
+    h('pre', {}, h('code', {}, 'aep pair-browser')),
+    h('p', {}, 'Then paste the link it prints.'),
+    pairLinkForm(),
+    h('div', { class: 'choices' }, h('button', { onclick: () => location.reload() }, 'Back to the group')),
+  );
+}
+
+// iPhones keep home screen apps separate from Safari, and a pairing link only works once. Pairing here
+// would use up the link on a browser that can't get alerts, so stop and explain first.
+function renderInstallFirst(id, secret) {
+  const link = location.href;
+  const field = h('input', { type: 'text', readOnly: true, value: link, ariaLabel: 'Pairing link', onfocus: (event) => event.target.select() });
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      toast('Link copied.');
+    } catch {
+      field.focus();
+      toast('Copy the selected link.');
+    }
+  };
+  screen(
+    h('h1', {}, 'Use this link in the home screen app'),
+    h('p', {}, 'iPhones keep home screen apps separate from Safari. If you pair here, you can use AEP in Safari, but you won\'t get phone alerts.'),
+    h('p', {}, 'To get alerts:'),
+    h('ol', {},
+      h('li', {}, 'Copy this link.'),
+      h('li', {}, 'Tap Share, then Add to Home Screen.'),
+      h('li', {}, 'Open AEP from your home screen, and paste the link there.')),
+    field,
+    h('div', { class: 'choices' },
+      h('button', { class: 'primary', onclick: copy }, 'Copy link'),
+      h('button', { onclick: () => startPairing(id, secret) }, 'Pair Safari, without alerts')),
   );
 }
 
 async function startPairing(id, secret) {
+  state.paused = true;
   screen(h('h1', {}, 'Pairing this browser'), h('p', {}, 'One moment.'));
   try {
+    // A browser the hub already knows can sign in straight away, so it can't move on by itself:
+    // that would take the code off the screen before anyone could compare it.
+    const returning = Boolean(await loadKey());
     const key = await ensureKey();
     const secretKey = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
     const mac = b64url(await crypto.subtle.sign('HMAC', secretKey, encoder.encode(JSON.stringify(['aep-pair-v1', id, key.jwk.x, key.jwk.y]))));
@@ -606,6 +687,15 @@ async function startPairing(id, secret) {
     await api('POST', `/v1/pairings/${id}/complete`, { jwk: key.jwk, mac, label });
     const code = `${key.kid.slice(0, 4)}-${key.kid.slice(4, 8)}`.toUpperCase();
     history.replaceState(null, '', '/');
+    if (returning) {
+      screen(
+        h('h1', {}, 'Compare this code'),
+        h('p', {}, 'Your terminal is showing a code. If it matches this one, confirm there.'),
+        h('div', { class: 'pair-code' }, code),
+        h('div', { class: 'choices' }, h('button', { class: 'primary', onclick: () => location.reload() }, "I've confirmed it")),
+      );
+      return undefined;
+    }
     screen(
       h('h1', {}, 'Compare this code'),
       h('p', {}, 'Your terminal is showing a code. If it matches this one, confirm there.'),
@@ -614,11 +704,16 @@ async function startPairing(id, secret) {
     );
     for (let attempt = 0; attempt < 300; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      if (await signIn()) return boot();
+      if (await signIn()) {
+        state.paused = false;
+        return boot();
+      }
     }
-    screen(h('h1', {}, 'Pairing timed out'), h('p', {}, 'Run aep pair-browser again for a new link.'));
+    screen(h('h1', {}, 'Pairing timed out'), h('p', {}, 'Run aep pair-browser again for a new link, and paste it here.'), pairLinkForm());
   } catch (error) {
-    screen(h('h1', {}, "Pairing didn't work"), h('p', {}, error.message), h('p', { class: 'muted small' }, 'Run aep pair-browser again for a new link.'));
+    // With no address bar, this box is a home screen app's only way to try again.
+    history.replaceState(null, '', '/');
+    screen(h('h1', {}, "Pairing didn't work"), h('p', {}, error.message), h('p', {}, 'Run aep pair-browser again for a new link, and paste it here.'), pairLinkForm());
   }
 }
 
@@ -631,7 +726,7 @@ function renderEmptyFeed() {
 let feedElement = null;
 
 function render() {
-  if (!state.me) return;
+  if (!state.me || state.paused) return;
   const wasAtBottom = !feedElement || feedElement.scrollHeight - feedElement.scrollTop - feedElement.clientHeight < 60;
   const previousScroll = feedElement?.scrollTop ?? 0;
   const focused = document.activeElement;
@@ -786,7 +881,9 @@ async function route() {
   const hash = location.hash.slice(1);
   const pair = hash.match(/^pair\/([\w-]+)\/([\w-]+)$/);
   if (pair) {
+    state.paused = true;
     state.stream?.close();
+    if (isIos() && !isInstalled()) return renderInstallFirst(pair[1], pair[2]);
     return startPairing(pair[1], pair[2]);
   }
   if (!state.me) return boot();
